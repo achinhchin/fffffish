@@ -8,11 +8,29 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createApi } from "./api.js";
 
 const HTTP_PORT = Number(process.env.HTTP_PORT || process.env.PORT || 2025);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 2026);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const CERT_DIR = path.join(ROOT, "certs");
+const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, "data");
+// files that exist on disk but are not part of the game client
+const PRIVATE = new Set(["server.js", "api.js", "package.json", "package-lock.json"]);
+const PRIVATE_DIRS = new Set(["certs", "data", "node_modules"]);
+
+// Accounts/saves need SQLite; if it can't open, the game still serves (without accounts).
+let handleApi;
+try {
+  handleApi = createApi(DATA_DIR);
+  console.log(`[db] using ${path.join(DATA_DIR, "fffffish.db")}`);
+} catch (err) {
+  console.warn(`[db] accounts disabled: ${err.message}`);
+  handleApi = (req, res) => {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "accounts are unavailable on this server" }));
+  };
+}
 
 // Where to look for a certificate, in order: SSL_CERT/SSL_KEY env vars,
 // cert.pem + key.pem in the project folder, then certs/ (auto-generated).
@@ -53,15 +71,20 @@ function handler(req, res) {
     send(res, 400, "Bad Request");
     return;
   }
+  if (urlPath.startsWith("/api/")) {
+    handleApi(req, res, urlPath);
+    return;
+  }
   const filePath = path.join(ROOT, urlPath === "/" ? "/index.html" : urlPath);
   const rel = path.relative(ROOT, filePath);
 
-  // Stay inside the project, and never serve dotfiles (.git) or TLS certificates/keys.
+  // Stay inside the project; never serve dotfiles (.git), TLS keys, the database or server code.
   if (
     rel.startsWith("..") ||
     path.isAbsolute(rel) ||
     rel.split(path.sep).some((p) => p.startsWith(".")) ||
-    rel.startsWith("certs") ||
+    PRIVATE_DIRS.has(rel.split(path.sep)[0]) ||
+    PRIVATE.has(rel) ||
     path.extname(rel).toLowerCase() === ".pem"
   ) {
     send(res, 403, "Forbidden");

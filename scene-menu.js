@@ -1,6 +1,7 @@
 import { W, H, C, FISH_SPECIES, state, resetState } from "./data.js";
 import { addEnvironment, drawer, drawFishShape, drawPanel, drawSparkle, drawCharacter, pulse } from "./art.js";
 import { isTouchMode, keyHint, showNameInput, hideNameInput } from "./touch.js";
+import { account, hasSave, applySave, showAccountBar } from "./account.js";
 
 export function addWavyTitle(str, y, size, col) {
   const letters = [];
@@ -66,7 +67,7 @@ scene("intro", () => {
 
   const prompt = add([
     text("Press SPACE to begin", { size: 16 }),
-    keyHint("Press SPACE to begin"),
+    keyHint(() => (hasSave() ? "Press SPACE to continue" : "Press SPACE to begin")),
     pos(W / 2, H / 2 + 100),
     anchor("center"),
     color(C.hudText),
@@ -88,13 +89,25 @@ scene("intro", () => {
     layer("ui"),
   ]);
 
-  onKeyPress("space", () => go("naming"));
+  showAccountBar(true);
+  onSceneLeave(() => showAccountBar(false));
+
+  onKeyPress("space", () => {
+    if (document.querySelector(".modal-back")) return;
+    if (hasSave()) {
+      const elapsed = applySave(account.save);
+      go("game", { elapsed, resumed: true });
+    } else {
+      go("naming");
+    }
+  });
 });
 
 scene("naming", () => {
   addEnvironment(true);
 
   resetState();
+  if (account.username) state.playerName = account.username;
 
   // little portrait of the fisherfolk
   let blinkUntil = 0;

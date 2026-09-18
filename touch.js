@@ -47,11 +47,12 @@ export function keyText(str) {
   return TOUCH_LABELS.reduce((s, [re, rep]) => s.replace(re, rep), str);
 }
 // Component that keeps a text object's hint in sync with the current mode.
+// `str` may be a function for hints that change (e.g. begin vs continue).
 export function keyHint(str) {
   return {
     id: "keyHint",
     update() {
-      this.text = keyText(str);
+      this.text = keyText(typeof str === "function" ? str() : str);
     },
   };
 }

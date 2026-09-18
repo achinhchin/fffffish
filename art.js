@@ -230,9 +230,9 @@ export function addEnvironment(withFog = true, opts = {}) {
     }
     // heavy storm clouds roll in along the top when it rains
     if (r > 0.01) {
-      for (let i = 0; i < 9; i++) {
-        const x = ((i * 110 + time() * 14) % (W + 220)) - 110;
-        drawCloud(x, 16 + (i % 3) * 14, 1.3, cloudCol.lerp(cloudShade, 0.4), cloudShade, r * 0.95);
+      for (let i = 0; i < 4; i++) {
+        const x = ((i * 240 + time() * 14) % (W + 240)) - 120;
+        drawCloud(x, 30 + (i % 2) * 14, 1.5, cloudCol.lerp(cloudShade, 0.4), cloudShade, r * 0.95);
       }
     }
 
@@ -845,18 +845,50 @@ export function addPierScenery() {
 }
 
 // ---------- rain ----------
-const DROPS = Array.from({ length: 220 }, () => newDrop(true));
-function newDrop(anywhere) {
-  const onDeck = chance(0.35);
-  const x = rand(-60, W + 20);
-  const ground = onDeck && x > PIER_X_MIN - 30 && x < PIER_X_MAX + 30 ? PIER_Y + rand(0, 4) : rand(SKY_H + 4, H);
-  return { x, y: anywhere ? rand(-40, ground) : rand(-60, -10), ground, sp: rand(520, 700), len: rand(10, 18) };
+// Rain streaks are drawn once into two screen-sized textures (near + far) and
+// scrolled, so a downpour costs a handful of sprite draws instead of hundreds
+// of individual lines.
+function makeRainLayer(name, count, len, width, alpha) {
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d");
+  g.strokeStyle = `rgba(214, 226, 240, ${alpha})`;
+  g.lineWidth = width;
+  g.lineCap = "round";
+  g.beginPath();
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const l = len * (0.7 + Math.random() * 0.6);
+    // draw wrapped copies so the texture tiles seamlessly
+    for (const [ox, oy] of [[0, 0], [-W, 0], [0, -H], [-W, -H], [W, 0], [0, H]]) {
+      g.moveTo(x + ox, y + oy);
+      g.lineTo(x + ox - l * 0.18, y + oy - l);
+    }
+  }
+  g.stroke();
+  loadSprite(name, cv);
+}
+makeRainLayer("rainFar", 140, 11, 1, 0.45);
+makeRainLayer("rainNear", 70, 18, 1.6, 0.6);
+
+function drawRainLayer(name, speed, op) {
+  // scroll down (and slightly right) with wrap-around
+  const ox = ((time() * speed * 0.18) % W + W) % W;
+  const oy = ((time() * speed) % H + H) % H;
+  for (const dx of [ox - W, ox]) {
+    for (const dy of [oy - H, oy]) {
+      drawSprite({ sprite: name, pos: vec2(dx, dy), opacity: op });
+    }
+  }
 }
 
 // Falling rain, splashes and the odd lightning flash. Draws nothing when it's dry.
 export function addRain() {
   const splashes = [];
   let bolt = null;
+  let splashDebt = 0;
   drawer(() => {
     const r = weather.rain;
     // lightning only in a heavy storm
@@ -884,17 +916,20 @@ export function addRain() {
     }
     if (r <= 0.01 && splashes.length === 0) return;
 
-    const count = Math.floor(DROPS.length * r);
-    for (let i = 0; i < count; i++) {
-      const d = DROPS[i];
-      d.y += d.sp * dt();
-      d.x += d.sp * 0.18 * dt();
-      if (d.y >= d.ground) {
-        if (splashes.length < 80) splashes.push({ x: d.x, y: d.ground, k: 0 });
-        Object.assign(d, newDrop(false));
-      }
-      drawLine({ p1: vec2(d.x, d.y), p2: vec2(d.x - d.len * 0.18, d.y - d.len), width: 1.3, color: C.rain, opacity: 0.55 });
+    if (r > 0.01) {
+      drawRainLayer("rainFar", 420, Math.min(1, r * 1.4));
+      if (r > 0.35) drawRainLayer("rainNear", 640, (r - 0.35) / 0.65);
     }
+
+    // a few splash ripples on the water / droplets on the deck
+    splashDebt += dt() * 45 * r;
+    while (splashDebt >= 1 && splashes.length < 30) {
+      splashDebt -= 1;
+      const x = rand(0, W);
+      const onDeck = chance(0.3) && x > PIER_X_MIN - 30 && x < PIER_X_MAX + 30;
+      splashes.push({ x, y: onDeck ? PIER_Y + rand(0, 3) : rand(SKY_H + 6, H), deck: onDeck, k: 0 });
+    }
+    splashDebt = Math.min(splashDebt, 1);
     for (let i = splashes.length - 1; i >= 0; i--) {
       const s = splashes[i];
       s.k += dt() * 3;
@@ -902,13 +937,11 @@ export function addRain() {
         splashes.splice(i, 1);
         continue;
       }
-      const onDeck = Math.abs(s.y - PIER_Y) < 6;
-      if (onDeck) {
-        drawCircle({ pos: vec2(s.x - s.k * 4, s.y - s.k * 5), radius: 1, color: C.rain, opacity: 1 - s.k });
-        drawCircle({ pos: vec2(s.x + s.k * 4, s.y - s.k * 5), radius: 1, color: C.rain, opacity: 1 - s.k });
+      if (s.deck) {
+        drawCircle({ pos: vec2(s.x, s.y - s.k * 5), radius: 1.3, color: C.rain, opacity: 1 - s.k });
       } else {
-        const scale = 0.5 + ((s.y - SKY_H) / (H - SKY_H)) * 0.8;
-        drawEllipse({ pos: vec2(s.x, s.y), radiusX: (2 + s.k * 7) * scale, radiusY: (0.8 + s.k * 2) * scale, fill: false, outline: { width: 1, color: C.rain }, color: C.rain, opacity: (1 - s.k) * 0.7 });
+        const sc = 0.5 + ((s.y - SKY_H) / (H - SKY_H)) * 0.8;
+        drawEllipse({ pos: vec2(s.x, s.y), radiusX: (2 + s.k * 7) * sc, radiusY: (0.8 + s.k * 2) * sc, color: C.rain, opacity: (1 - s.k) * 0.35 });
       }
     }
   }, "fx", -5);

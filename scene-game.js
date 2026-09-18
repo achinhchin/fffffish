@@ -45,6 +45,7 @@ import {
   lerpN,
 } from "./art.js";
 import { keyText } from "./touch.js";
+import { setPlaying, saveNow } from "./account.js";
 
 // ---------- fishing math ----------
 // Combined numbers from the equipped rod, skills and weather.
@@ -93,10 +94,18 @@ function rollCatch(luck, valueMult) {
 const TUG_R0 = 46;
 const TUG_TARGET = 12;
 
-scene("game", () => {
+scene("game", (opts = {}) => {
   addEnvironment(true);
   addPierScenery();
-  state.gameStartTime = time();
+  state.gameStartTime = time() - (opts.elapsed || 0);
+
+  // autosave while playing (logged-in players only)
+  setPlaying(true);
+  onSceneLeave(() => {
+    saveNow();
+    setPlaying(false);
+  });
+  if (opts.resumed) wait(0.6, () => floatingText(`Welcome back, ${state.playerName}!`, C.hudText, vec2(W / 2, 140)));
 
   // ---------- weather ----------
   weather.nextChange = time() + rand(15, 30);

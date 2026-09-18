@@ -1,6 +1,7 @@
 import { W, H, C, FISH_SPECIES, STORY_OPENING, STORY_ENDING, EPILOGUES, state } from "./data.js";
 import { addEnvironment, drawer, drawPanel, drawIllustration, drawSparkle, drawFishShape, drawCloud, glow, pulse } from "./art.js";
 import { keyText, keyHint } from "./touch.js";
+import { finishRun, showAccountBar } from "./account.js";
 
 // Shows story pages one by one with a typewriter effect.
 // The last page may be a choice; `onDone(choice)` is called at the end.
@@ -104,6 +105,9 @@ scene("ending", ({ elapsed }) => {
 
 scene("win", ({ choice, elapsed }) => {
   const epi = EPILOGUES[choice];
+  finishRun(elapsed); // puts this run on the global scoreboard
+  showAccountBar(true);
+  onSceneLeave(() => showAccountBar(false));
   const sparkles = Array.from({ length: 40 }, () => ({ x: rand(0, W), y: rand(0, H), sp: rand(10, 30), s: rand(2, 5), ph: rand(0, 6) }));
   const confetti = Array.from({ length: 60 }, () => ({
     x: rand(0, W),
