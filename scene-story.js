@@ -1,5 +1,6 @@
 import { W, H, C, FISH_SPECIES, STORY_OPENING, STORY_ENDING, EPILOGUES, state } from "./data.js";
 import { addEnvironment, drawer, drawPanel, drawIllustration, drawSparkle, drawFishShape, drawCloud, glow, pulse } from "./art.js";
+import { keyText, keyHint } from "./touch.js";
 
 // Shows story pages one by one with a typewriter effect.
 // The last page may be a choice; `onDone(choice)` is called at the end.
@@ -49,7 +50,7 @@ function runStory(pages, { onDone, skippable }) {
       });
     } else if (done) {
       drawText({
-        text: page < pages.length - 1 ? "SPACE to continue" : "SPACE to begin",
+        text: keyText(page < pages.length - 1 ? "SPACE to continue" : "SPACE to begin"),
         size: 13,
         pos: vec2(W / 2, 486),
         anchor: "center",
@@ -57,7 +58,7 @@ function runStory(pages, { onDone, skippable }) {
         opacity: 0.6 + Math.sin(time() * 4) * 0.4,
       });
     }
-    if (skippable) drawText({ text: "ESC to skip", size: 11, pos: vec2(W / 2 + 270, 536), anchor: "right", color: C.panelHint });
+    if (skippable) drawText({ text: keyText("ESC to skip"), size: 11, pos: vec2(W / 2 + 270, 536), anchor: "right", color: C.panelHint });
   }, "ui", 0);
 
   onUpdate(() => {
@@ -244,7 +245,7 @@ scene("win", ({ choice, elapsed }) => {
     layer("ui"),
   ]);
 
-  const prompt = add([text("Press SPACE to play again", { size: 14 }), pos(W / 2, H - 50), anchor("center"), color(C.title), opacity(1), layer("ui")]);
+  const prompt = add([text("Press SPACE to play again", { size: 14 }), keyHint("Press SPACE to play again"), pos(W / 2, H - 50), anchor("center"), color(C.title), opacity(1), layer("ui")]);
   pulse(prompt);
 
   onKeyPress("space", () => go("intro"));

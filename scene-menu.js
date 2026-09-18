@@ -1,5 +1,6 @@
 import { W, H, C, FISH_SPECIES, state, resetState } from "./data.js";
 import { addEnvironment, drawer, drawFishShape, drawPanel, drawSparkle, drawCharacter, pulse } from "./art.js";
+import { isTouchMode, keyHint, showNameInput, hideNameInput } from "./touch.js";
 
 export function addWavyTitle(str, y, size, col) {
   const letters = [];
@@ -65,6 +66,7 @@ scene("intro", () => {
 
   const prompt = add([
     text("Press SPACE to begin", { size: 16 }),
+    keyHint("Press SPACE to begin"),
     pos(W / 2, H / 2 + 100),
     anchor("center"),
     color(C.hudText),
@@ -77,7 +79,8 @@ scene("intro", () => {
   }, "ui", -1);
 
   add([
-    text("Move: <- -> / A D    Act: SPACE    Technique: Q / E    Skills: K    Journal: J", { size: 12 }),
+    text("", { size: 12 }),
+    keyHint("Move: <- -> / A D    Act: SPACE    Technique: Q / E    Skills: K    Journal: J"),
     pos(W / 2, H - 30),
     anchor("center"),
     color(C.hudHint),
@@ -145,24 +148,50 @@ scene("naming", () => {
     cursor.opacity = Math.sin(time() * 6) > 0 ? 1 : 0;
   });
 
-  onCharInput((ch) => {
-    if (state.playerName.length >= 12) return;
-    if (/^[a-zA-Z0-9 ]$/.test(ch)) {
-      state.playerName += ch;
-      refresh();
-    }
+  // Read typed characters from the real keydown event: KAPLAY's onCharInput
+  // lowercases everything. Synthetic events from the touch buttons are ignored.
+  const canvas = document.querySelector("canvas");
+  const onType = (e) => {
+    if (!e.isTrusted || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (state.playerName.length >= 12 || !/^[a-zA-Z0-9 ]$/.test(e.key)) return;
+    state.playerName += e.key;
+    refresh();
+  };
+  canvas.addEventListener("keydown", onType);
+
+  // In touch mode a real text field sits over the name box so the phone keyboard opens.
+  showNameInput(state.playerName, (name) => {
+    state.playerName = name;
+    refresh();
   });
+  onSceneLeave(() => {
+    canvas.removeEventListener("keydown", onType);
+    hideNameInput();
+  });
+  onUpdate(() => {
+    const hidden = isTouchMode();
+    nameText.hidden = hidden;
+    cursor.hidden = hidden;
+  });
+
   onKeyPressRepeat("backspace", () => {
     state.playerName = state.playerName.slice(0, -1);
     refresh();
   });
-  onKeyPress("enter", () => {
-    if (state.playerName.trim().length === 0) state.playerName = "Noob";
+  function confirmName() {
+    state.playerName = state.playerName.trim();
+    if (state.playerName.length === 0) state.playerName = "Noob";
     go("story");
+  }
+  onKeyPress("enter", confirmName);
+  // the ACT button confirms in touch mode (on a keyboard, space is part of the name)
+  onKeyPress("space", () => {
+    if (isTouchMode()) confirmName();
   });
 
   add([
-    text("ENTER to confirm  -  BACKSPACE to edit", { size: 12 }),
+    text("", { size: 12 }),
+    keyHint("ENTER to confirm  -  BACKSPACE to edit"),
     pos(W / 2, H / 2 + 62),
     anchor("center"),
     color(C.hudHint),

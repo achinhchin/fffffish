@@ -44,6 +44,7 @@ import {
   nightAmount,
   lerpN,
 } from "./art.js";
+import { keyText } from "./touch.js";
 
 // ---------- fishing math ----------
 // Combined numbers from the equipped rod, skills and weather.
@@ -726,7 +727,7 @@ scene("game", () => {
     }
 
     // bottom hint
-    const hint = computeHint();
+    const hint = keyText(computeHint());
     if (hint) {
       const hw = Math.max(200, tw(hint, 13) + 40);
       const hot = hooked() || fishState === "charging";
@@ -874,8 +875,8 @@ scene("game", () => {
       action = `Need ${r.cost - state.money} more coins`;
       col = C.badText;
     }
-    drawText({ text: action, size: 14, pos: vec2(dx + 146, y0 + 290), anchor: "center", color: col });
-    drawText({ text: "up/down browse   ESC close", size: 11, pos: vec2(W / 2, y0 + 340), anchor: "center", color: C.panelHint });
+    drawText({ text: keyText(action), size: 14, pos: vec2(dx + 146, y0 + 290), anchor: "center", color: col });
+    drawText({ text: keyText("up/down browse   ESC close"), size: 11, pos: vec2(W / 2, y0 + 340), anchor: "center", color: C.panelHint });
   }
 
   function drawSkills() {
@@ -905,7 +906,7 @@ scene("game", () => {
       drawText({ text: sk.desc, size: 10, pos: vec2(x0 + 28, y + 21), anchor: "left", color: C.panelHint });
       drawPips(x0 + 300, y + 12, state.skills[sk.id], SKILL_MAX, C.playerScarfDark, 6, 17);
       if (i === sel && state.skillPoints > 0 && state.skills[sk.id] < SKILL_MAX) {
-        drawText({ text: "+ SPACE", size: 11, pos: vec2(x0 + 494, y + 12), anchor: "right", color: C.goodText });
+        drawText({ text: keyText("+ SPACE"), size: 11, pos: vec2(x0 + 494, y + 12), anchor: "right", color: C.goodText });
       }
     });
 
@@ -917,7 +918,7 @@ scene("game", () => {
       drawText({ text: `${i + 1}. ${t.name}`, size: 12, pos: vec2(x0 + 42, y), anchor: "left", color: open ? C.panelText : C.panelHint });
       drawText({ text: open ? t.desc : `unlocks at Lv ${t.unlock}`, size: 10, pos: vec2(x0 + 150, y), anchor: "left", color: C.panelHint });
     });
-    drawText({ text: "up/down choose   SPACE spend point   ESC close", size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
+    drawText({ text: keyText("up/down choose   SPACE spend point   ESC close"), size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
   }
 
   function drawJournal() {
@@ -945,7 +946,7 @@ scene("game", () => {
         drawCircle({ pos: vec2(cx + 119, cy + 11), radius: 4.5, color: known ? rgb(255, 255, 255) : C.panelBg });
       }
     });
-    drawText({ text: "drop = only in rain   moon = only at night   J / ESC close", size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
+    drawText({ text: keyText("drop = only in rain   moon = only at night   J / ESC close"), size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
   }
 
   // ---------- per-frame ----------
