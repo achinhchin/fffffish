@@ -363,12 +363,12 @@ scene("game", (opts = {}) => {
       nextTarget: 0,
       zone: 0.5,
       vel: 0,
-      progress: 0.3,
+      progress: 0.35,
       inside: true,
       d,
-      zoneW: Math.min(0.42, 0.14 + 0.06 * s.power) * (catchInfo.legend ? 0.8 : 1),
-      gain: 0.2 + 0.07 * s.power,
-      loss: 0.14 + d * 0.035,
+      zoneW: Math.min(0.45, 0.2 + 0.06 * s.power) * (catchInfo.legend ? 0.8 : 1),
+      gain: 0.22 + 0.07 * s.power,
+      loss: 0.1 + d * 0.04,
     };
   }
 
@@ -376,12 +376,12 @@ scene("game", (opts = {}) => {
     const r = reel;
     if (time() > r.nextTarget) {
       r.target = rand(0.05, 0.95);
-      r.nextTarget = time() + rand(0.5, 1.3) * (1 - r.d * 0.12);
+      r.nextTarget = time() + rand(0.6, 1.4) * (1 - r.d * 0.1);
     }
-    const sp = (0.2 + r.d * 0.18) * dt();
+    const sp = (0.18 + r.d * 0.16) * dt();
     r.fish += Math.max(-sp, Math.min(sp, r.target - r.fish));
-    r.vel += (isKeyDown("space") ? 2.4 : -2.0) * dt();
-    r.vel *= Math.exp(-1.5 * dt());
+    r.vel += (isKeyDown("space") ? 3.2 : -2.6) * dt();
+    r.vel *= Math.exp(-4 * dt());
     r.zone += r.vel * dt();
     const half = r.zoneW / 2;
     if (r.zone < half) {
