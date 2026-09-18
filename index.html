@@ -115,7 +115,8 @@
     align-items: center;
   }
   .actions .small { width: 46px; height: 46px; font-size: 15px; }
-  .actions .back { grid-column: 1 / span 3; grid-row: 1; width: 100%; height: 34px; border-radius: 999px; font-size: 12px; }
+  .actions .back { grid-column: 1 / span 2; grid-row: 1; width: 100%; height: 34px; border-radius: 999px; font-size: 12px; }
+  .actions .l { grid-column: 3; grid-row: 1; width: 46px; height: 34px; border-radius: 999px; font-size: 12px; flex-direction: row; gap: 3px; }
   .actions .q { grid-column: 1; grid-row: 2; }
   .actions .e { grid-column: 2; grid-row: 2; }
   .actions .k { grid-column: 3; grid-row: 2; }
@@ -252,6 +253,24 @@
   .board td:nth-child(2) { text-align: left; }
   .board tr.me td { background: #ffeeaa; font-weight: 600; }
   .board td.gold { color: #c7912d; font-weight: 600; }
+
+  /* ---------- fps counter ---------- */
+  .fps-meter {
+    position: fixed;
+    right: calc(8px + env(safe-area-inset-right));
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    z-index: 25;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(26, 31, 46, 0.55);
+    color: #9fe0a8;
+    font: 11px/1 ui-monospace, Menlo, monospace;
+    pointer-events: none;
+  }
+  .fps-meter[data-level="ok"] { color: #ffd060; }
+  .fps-meter[data-level="bad"] { color: #ff8c8c; }
+  /* sit above the ACT button cluster in touch mode */
+  body.touch-mode .fps-meter { bottom: calc(250px + env(safe-area-inset-bottom)); }
 </style>
 </head>
 <body>

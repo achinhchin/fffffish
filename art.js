@@ -8,7 +8,7 @@ export function drawer(fn, layerName = "world", zIndex = 0) {
 
 export function drawArc(p, r, start, end, width, col, op = 1, ry = r) {
   const pts = [];
-  const steps = 12;
+  const steps = Math.max(3, Math.min(12, Math.round(Math.max(r, ry))));
   for (let i = 0; i <= steps; i++) {
     const a = ((start + ((end - start) * i) / steps) * Math.PI) / 180;
     pts.push(vec2(p.x + Math.cos(a) * r, p.y + Math.sin(a) * ry));
@@ -226,12 +226,12 @@ export function addEnvironment(withFog = true, opts = {}) {
     for (const c of clouds) {
       c.x += c.sp * dt();
       if (c.x > W + 120) c.x = -120;
-      drawCloud(c.x, c.y, c.s * (1 + r * 0.5), cloudCol, cloudShade, 0.9);
+      drawCloud(c.x, c.y, c.s, cloudCol, cloudShade, 0.9);
     }
     // heavy storm clouds roll in along the top when it rains
     if (r > 0.01) {
-      for (let i = 0; i < 4; i++) {
-        const x = ((i * 240 + time() * 14) % (W + 240)) - 120;
+      for (let i = 0; i < 3; i++) {
+        const x = ((i * 320 + time() * 14) % (W + 240)) - 120;
         drawCloud(x, 30 + (i % 2) * 14, 1.5, cloudCol.lerp(cloudShade, 0.4), cloudShade, r * 0.95);
       }
     }
@@ -845,33 +845,37 @@ export function addPierScenery() {
 }
 
 // ---------- rain ----------
-// Rain streaks are drawn once into two screen-sized textures (near + far) and
-// scrolled, so a downpour costs a handful of sprite draws instead of hundreds
-// of individual lines.
-function makeRainLayer(name, count, len, width, alpha) {
+// All rain streaks (thin far ones + thicker near ones) are drawn once into a
+// single screen-sized texture that is scrolled, so a downpour costs one
+// screen's worth of transparent pixels per frame.
+function makeRainTexture() {
   const cv = document.createElement("canvas");
   cv.width = W;
   cv.height = H;
   const g = cv.getContext("2d");
-  g.strokeStyle = `rgba(214, 226, 240, ${alpha})`;
-  g.lineWidth = width;
   g.lineCap = "round";
-  g.beginPath();
-  for (let i = 0; i < count; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H;
-    const l = len * (0.7 + Math.random() * 0.6);
-    // draw wrapped copies so the texture tiles seamlessly
-    for (const [ox, oy] of [[0, 0], [-W, 0], [0, -H], [-W, -H], [W, 0], [0, H]]) {
-      g.moveTo(x + ox, y + oy);
-      g.lineTo(x + ox - l * 0.18, y + oy - l);
+  for (const [count, len, width, alpha] of [
+    [110, 11, 1, 0.45],
+    [45, 18, 1.6, 0.6],
+  ]) {
+    g.strokeStyle = `rgba(214, 226, 240, ${alpha})`;
+    g.lineWidth = width;
+    g.beginPath();
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * W;
+      const y = Math.random() * H;
+      const l = len * (0.7 + Math.random() * 0.6);
+      // draw wrapped copies so the texture tiles seamlessly
+      for (const [ox, oy] of [[0, 0], [-W, 0], [0, -H], [-W, -H], [W, 0], [0, H]]) {
+        g.moveTo(x + ox, y + oy);
+        g.lineTo(x + ox - l * 0.18, y + oy - l);
+      }
     }
+    g.stroke();
   }
-  g.stroke();
-  loadSprite(name, cv);
+  loadSprite("rain", cv);
 }
-makeRainLayer("rainFar", 140, 11, 1, 0.45);
-makeRainLayer("rainNear", 70, 18, 1.6, 0.6);
+makeRainTexture();
 
 function drawRainLayer(name, speed, op) {
   // scroll down (and slightly right) with wrap-around
@@ -917,13 +921,12 @@ export function addRain() {
     if (r <= 0.01 && splashes.length === 0) return;
 
     if (r > 0.01) {
-      drawRainLayer("rainFar", 420, Math.min(1, r * 1.4));
-      if (r > 0.35) drawRainLayer("rainNear", 640, (r - 0.35) / 0.65);
+      drawRainLayer("rain", 520, Math.min(1, r * 1.3));
     }
 
     // a few splash ripples on the water / droplets on the deck
-    splashDebt += dt() * 45 * r;
-    while (splashDebt >= 1 && splashes.length < 30) {
+    splashDebt += dt() * 22 * r;
+    while (splashDebt >= 1 && splashes.length < 14) {
       splashDebt -= 1;
       const x = rand(0, W);
       const onDeck = chance(0.3) && x > PIER_X_MIN - 30 && x < PIER_X_MAX + 30;

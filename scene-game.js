@@ -45,7 +45,7 @@ import {
   lerpN,
 } from "./art.js";
 import { keyText } from "./touch.js";
-import { setPlaying, saveNow } from "./account.js";
+import { setPlaying, saveNow, openScoreboard, account } from "./account.js";
 
 // ---------- fishing math ----------
 // Combined numbers from the equipped rod, skills and weather.
@@ -534,6 +534,16 @@ scene("game", (opts = {}) => {
   }
   onKeyPress("k", () => togglePanel("skills"));
   onKeyPress("j", () => togglePanel("journal"));
+  onKeyPress("l", () => {
+    if (lineOut()) return;
+    if (!account.online) {
+      floatingText("Scoreboard needs the game server", C.badText, vec2(player.pos.x, PIER_Y - 100));
+      return;
+    }
+    panel = null;
+    saveNow(); // so your latest stats are on the board
+    openScoreboard();
+  });
   onKeyPress("escape", () => {
     panel = null;
   });
@@ -726,6 +736,13 @@ scene("game", (opts = {}) => {
     pill(jX, 38, jW);
     drawText({ text: jStr, size: 12, pos: vec2(jX + 13, 51), anchor: "left", color: C.hudText });
 
+    if (account.online) {
+      const lStr = "L board";
+      const lX = jX + jW + 8;
+      pill(lX, 38, tw(lStr, 12) + 26);
+      drawText({ text: lStr, size: 12, pos: vec2(lX + 13, 51), anchor: "left", color: C.hudText });
+    }
+
     if (weather.rain > 0.05) {
       const storm = weather.rain > 0.8;
       const wStr = storm ? "storm" : "rain";
@@ -795,7 +812,7 @@ scene("game", (opts = {}) => {
     if (fishState === "cooldown") return "";
     if (nearZone(player.pos.x, SHOP_X)) return "SPACE to open the shop";
     if (nearZone(player.pos.x, FISH_X)) return t === "deep" ? "HOLD SPACE to charge a deep cast" : `SPACE to cast (${tech().name})`;
-    return "<- -> walk   Q/E technique   K skills   J journal";
+    return "<- -> walk   Q/E technique   K skills   J journal   L board";
   }
 
   // ---------- panels ----------

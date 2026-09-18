@@ -245,9 +245,19 @@ function fmtTime(sec) {
   return `${m}:${s}`;
 }
 export async function openScoreboard() {
-  const { box, close } = modal("Global Scoreboard");
+  const { back, box, close } = modal("Global Scoreboard");
   const body = el("div", "board-body", "Loading...");
-  box.append(body, button("Close", "primary", close));
+  const closeBtn = button("Close", "primary", close);
+  box.append(body, closeBtn);
+  // take focus off the game so its keys don't fire underneath; ESC / L / ENTER close it
+  back.tabIndex = -1;
+  back.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || e.key === "l" || e.key === "L") {
+      e.preventDefault();
+      close();
+    }
+  });
+  closeBtn.focus();
   try {
     const { top, me } = await api("GET", "/api/scoreboard");
     body.textContent = "";
