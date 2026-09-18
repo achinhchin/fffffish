@@ -1,0 +1,10 @@
+{
+  "name": "fffffish",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A short, pastel, lonely fishing game built with KAPLAY.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
