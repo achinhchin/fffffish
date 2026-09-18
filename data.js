@@ -133,13 +133,17 @@ export const C = {
 // luck:   pulls the catch toward rarer fish
 export const RODS = [
   { name: "Twig Rod", cost: 0, tiers: [0], window: 0.9, power: 1.0, luck: 0, tint: rgb(150, 111, 89), desc: "Grandma's old twig.\nIt listens." },
-  { name: "Bamboo Rod", cost: 30, tiers: [0, 1], window: 0.85, power: 1.15, luck: 0.05, tint: rgb(170, 190, 120), desc: "Light and springy.\nA solid first upgrade." },
-  { name: "Swift Rod", cost: 70, tiers: [0, 1], window: 1.25, power: 0.9, luck: 0, tint: rgb(120, 200, 200), desc: "Very forgiving timing.\nGreat for tugs." },
-  { name: "Iron Rod", cost: 120, tiers: [0, 1, 2], window: 0.8, power: 1.8, luck: 0.05, tint: rgb(140, 146, 170), desc: "Heavy. Wins any\ntug-of-war with a lure." },
-  { name: "Clover Rod", cost: 180, tiers: [0, 1, 2], window: 0.9, power: 1.1, luck: 0.45, tint: rgb(120, 190, 130), desc: "Rare fish seem to\nlike it. Nobody knows why." },
-  { name: "Storm Rod", cost: 260, tiers: [0, 1, 2, 3], window: 0.8, power: 1.5, luck: 0.15, rainLuck: 0.6, tint: rgb(110, 140, 200), desc: "Hums when it rains.\nMuch luckier in storms." },
-  { name: "Master Rod", cost: 380, tiers: [0, 1, 2, 3], window: 0.85, power: 1.9, luck: 0.3, tint: rgb(180, 120, 200), desc: "A true angler's rod.\nStrong in every way." },
-  { name: "Legend Rod", cost: 600, tiers: [0, 1, 2, 3], window: 0.75, power: 2.0, luck: 0.35, legendChance: 0.2, tint: rgb(230, 170, 60), desc: "The only rod the\nLegend will answer." },
+  { name: "Bamboo Rod", cost: 40, tiers: [0, 1], window: 0.85, power: 1.15, luck: 0.05, tint: rgb(170, 190, 120), desc: "Light and springy.\nA solid first upgrade." },
+  { name: "Swift Rod", cost: 110, tiers: [0, 1], window: 1.25, power: 0.9, luck: 0, tint: rgb(120, 200, 200), desc: "Very forgiving timing.\nGreat for tugs." },
+  { name: "Iron Rod", cost: 200, tiers: [0, 1, 2], window: 0.8, power: 1.8, luck: 0.05, tint: rgb(140, 146, 170), desc: "Heavy. Wins any\ntug-of-war with a lure." },
+  { name: "Coral Rod", cost: 300, tiers: [0, 1, 2], window: 1.1, power: 1.3, luck: 0.2, tint: rgb(255, 150, 140), desc: "Grown, not made.\nWarm in the hand." },
+  { name: "Clover Rod", cost: 420, tiers: [0, 1, 2], window: 0.9, power: 1.1, luck: 0.45, tint: rgb(120, 190, 130), desc: "Rare fish seem to\nlike it. Nobody knows why." },
+  { name: "Moon Rod", cost: 560, tiers: [0, 1, 2, 3], window: 1.0, power: 1.4, luck: 0.15, nightLuck: 0.6, tint: rgb(200, 190, 250), desc: "Glows faintly.\nMuch luckier at night." },
+  { name: "Storm Rod", cost: 700, tiers: [0, 1, 2, 3], window: 0.8, power: 1.5, luck: 0.15, rainLuck: 0.6, tint: rgb(110, 140, 200), desc: "Hums when it rains.\nMuch luckier in storms." },
+  { name: "Abyss Rod", cost: 900, tiers: [0, 1, 2, 3], window: 0.85, power: 2.2, luck: 0.2, deepLuck: 0.6, tint: rgb(70, 80, 130), desc: "Built for the dark.\nDeep Line loves it." },
+  { name: "Master Rod", cost: 1150, tiers: [0, 1, 2, 3], window: 0.95, power: 2.0, luck: 0.35, tint: rgb(180, 120, 200), desc: "A true angler's rod.\nStrong in every way." },
+  { name: "Heart Rod", cost: 1400, tiers: [0, 1, 2, 3], window: 1.3, power: 2.1, luck: 0.5, tint: rgb(255, 170, 190), desc: "Grandma's twig, restored.\nIt still listens." },
+  { name: "Legend Rod", cost: 1800, tiers: [0, 1, 2, 3], window: 0.8, power: 2.2, luck: 0.4, legendChance: 0.2, tint: rgb(230, 170, 60), desc: "The only rod the\nLegend will answer." },
 ];
 
 // ---------- techniques ----------
@@ -150,32 +154,43 @@ export const TECHNIQUES = [
 ];
 
 // ---------- skills ----------
-export const SKILL_MAX = 5;
+export const SKILL_MAX = 8;
 export const SKILLS = [
   { id: "reflex", name: "Reflex", desc: "+10% bite & tug timing" },
   { id: "strength", name: "Strength", desc: "bigger reel zone, faster reel" },
-  { id: "luck", name: "Luck", desc: "rarer fish, +6% coins" },
-  { id: "patience", name: "Patience", desc: "fish bite 10% sooner" },
+  { id: "luck", name: "Luck", desc: "rarer fish" },
+  { id: "patience", name: "Patience", desc: "fish bite 8% sooner" },
+  { id: "endurance", name: "Endurance", desc: "fish tire faster when reeling" },
+  { id: "fortune", name: "Fortune", desc: "+8% coins per catch" },
 ];
 export function xpToNext(level) {
-  return 20 + level * 25;
+  return Math.round(25 + level * 30 + level * level * 4);
 }
 
 // ---------- fish ----------
 export const FISH_WEIGHTS = [50, 30, 15, 5];
+// cond: only while "night", "rain", or on a "deep" line
 export const FISH_SPECIES = [
   { name: "Minnow", tier: 0, base: 4, size: [5, 10], emoji: "🐟", col: rgb(190, 206, 214), fin: rgb(150, 170, 186) },
   { name: "Sardine", tier: 0, base: 5, size: [12, 20], emoji: "🐟", col: rgb(170, 196, 214), fin: rgb(140, 166, 190) },
   { name: "Pond Perch", tier: 0, base: 6, size: [15, 28], emoji: "🐟", col: rgb(206, 214, 150), fin: rgb(170, 180, 110) },
+  { name: "Goby", tier: 0, base: 5, size: [6, 14], emoji: "🐟", col: rgb(214, 190, 160), fin: rgb(180, 150, 120) },
+  { name: "Glow Shrimp", tier: 0, base: 9, size: [4, 9], emoji: "🦐", col: rgb(255, 200, 190), fin: rgb(255, 150, 140), cond: "night" },
   { name: "Mackerel", tier: 1, base: 12, size: [25, 45], emoji: "🐟", col: rgb(140, 190, 200), fin: rgb(90, 140, 160) },
   { name: "Clownfish", tier: 1, base: 14, size: [8, 14], emoji: "🐠", col: rgb(255, 170, 110), fin: rgb(250, 236, 226) },
   { name: "Sea Bream", tier: 1, base: 16, size: [25, 40], emoji: "🐠", col: rgb(255, 186, 170), fin: rgb(236, 140, 130) },
+  { name: "Flounder", tier: 1, base: 18, size: [20, 50], emoji: "🐟", col: rgb(190, 170, 140), fin: rgb(150, 130, 100) },
+  { name: "Rain Trout", tier: 1, base: 22, size: [30, 60], emoji: "🌈", col: rgb(220, 180, 220), fin: rgb(150, 200, 190), cond: "rain" },
   { name: "Pufferfish", tier: 2, base: 30, size: [15, 35], emoji: "🐡", col: rgb(240, 220, 150), fin: rgb(210, 180, 110) },
+  { name: "Lionfish", tier: 2, base: 38, size: [20, 38], emoji: "🐠", col: rgb(250, 160, 130), fin: rgb(255, 240, 230) },
   { name: "Moon Jelly", tier: 2, base: 42, size: [20, 40], emoji: "🌙", col: rgb(210, 200, 250), fin: rgb(170, 160, 230), cond: "night" },
   { name: "Storm Eel", tier: 2, base: 45, size: [60, 120], emoji: "⚡", col: rgb(150, 170, 200), fin: rgb(250, 220, 120), cond: "rain" },
+  { name: "Lantern Fish", tier: 2, base: 48, size: [10, 25], emoji: "🏮", col: rgb(90, 100, 140), fin: rgb(255, 230, 140), cond: "deep" },
   { name: "Swordfish", tier: 3, base: 70, size: [120, 250], emoji: "🐟", col: rgb(120, 150, 210), fin: rgb(90, 110, 180) },
   { name: "Manta Ray", tier: 3, base: 78, size: [150, 300], emoji: "🐟", col: rgb(110, 120, 150), fin: rgb(210, 214, 230) },
   { name: "Thunder Shark", tier: 3, base: 110, size: [200, 350], emoji: "🦈", col: rgb(170, 160, 220), fin: rgb(255, 220, 110), cond: "rain" },
+  { name: "Ghost Oarfish", tier: 3, base: 120, size: [300, 800], emoji: "👻", col: rgb(230, 236, 250), fin: rgb(255, 150, 160), cond: "night" },
+  { name: "Coelacanth", tier: 3, base: 140, size: [120, 200], emoji: "🦴", col: rgb(80, 100, 130), fin: rgb(200, 220, 240), cond: "deep" },
 ];
 export const TIER_NAMES = ["common", "uncommon", "rare", "epic", "legend"];
 
@@ -206,6 +221,46 @@ export const EPILOGUES = {
   },
 };
 
+// Grandma's letters, found as you play. The Legend only comes once all are read.
+export const LETTERS = [
+  { when: (s) => s.caughtCount >= 5, hint: "catch 5 fish", text: "{name}, if you're reading this, you found my tackle box. I hid a letter in every place I loved. The first is here, with the smell of salt and old bait. I caught my first fish on this pier when I was your age. I cried when I let it go." },
+  { when: (s) => s.level >= 4, hint: "reach level 4", text: "Your grandfather built the tackle shop with his own hands. He painted it pink because I laughed when he said pink was silly. We sold bait here for forty summers. Even after he was gone, I kept making two cups of tea every morning." },
+  { when: (s) => (s.stats.nightCatches || 0) >= 1, hint: "catch a fish at night", text: "The sea is different at night. Quieter. Honest. I sat here when I couldn't sleep, after your mother moved to the city. I wasn't lonely, exactly. The moon kept me company, and the little glowing shrimp." },
+  { when: (s) => (s.stats.rainCatches || 0) >= 1, hint: "catch a fish in the rain", text: "Most people run from the rain. Don't. The best fish come when the sky cries, and so do the best thoughts. It was raining the day you were born. I stood right here and told the whole sea your name." },
+  { when: (s) => Object.keys(s.journal).length >= 12, hint: "discover 12 species", text: "You've met so many of my old friends now. Every fish here has a story. I wrote them all down once, in a book I lost. Maybe you're writing a new one. I'd like that more than you know." },
+  { when: (s) => s.level >= 12, hint: "reach level 12", text: "This is my last letter. I'm tired, {name}, but happy. The Legend God Fish is waiting. It came to me once, and it will come to you, because you listen like I did. Remember: loving something doesn't always mean keeping it. All my love, Grandma." },
+];
+
+// Achievements: `test(s)` runs against the live state; lifetime counters live in s.stats.
+const st = (s, k) => s.stats[k] || 0;
+const species = (s) => Object.keys(s.journal).length;
+export const ACHIEVEMENTS = [
+  { name: "First Bite", desc: "catch a fish", test: (s) => s.caughtCount >= 1 },
+  { name: "Regular", desc: "catch 50 fish", test: (s) => s.caughtCount >= 50 },
+  { name: "Old Salt", desc: "catch 250 fish", test: (s) => s.caughtCount >= 250 },
+  { name: "Sea Whisperer", desc: "catch 1000 fish", test: (s) => s.caughtCount >= 1000 },
+  { name: "Curious", desc: "discover 10 species", test: (s) => species(s) >= 10 },
+  { name: "Marine Biologist", desc: "discover every species", test: (s) => species(s) >= FISH_SPECIES.length },
+  { name: "Pier Pacer", desc: "walk 1 km", test: (s) => st(s, "walked") >= 1000 },
+  { name: "Marathon Angler", desc: "walk 10 km", test: (s) => st(s, "walked") >= 10000 },
+  { name: "Pocket Change", desc: "earn 1,000 coins", test: (s) => st(s, "coinsEarned") >= 1000 },
+  { name: "Tycoon", desc: "earn 20,000 coins", test: (s) => st(s, "coinsEarned") >= 20000 },
+  { name: "Collector", desc: "own every rod", test: (s) => s.ownedRods.length >= RODS.length },
+  { name: "Seasoned", desc: "reach level 10", test: (s) => s.level >= 10 },
+  { name: "Veteran", desc: "reach level 20", test: (s) => s.level >= 20 },
+  { name: "Master Angler", desc: "reach level 30", test: (s) => s.level >= 30 },
+  { name: "Night Owl", desc: "catch 25 fish at night", test: (s) => st(s, "nightCatches") >= 25 },
+  { name: "Storm Chaser", desc: "catch 25 fish in the rain", test: (s) => st(s, "rainCatches") >= 25 },
+  { name: "Lure Artist", desc: "catch 50 fish with a lure", test: (s) => st(s, "catch_lure") >= 50 },
+  { name: "Into the Deep", desc: "catch 50 on a deep line", test: (s) => st(s, "catch_deep") >= 50 },
+  { name: "Monster", desc: "catch a fish over 5 m", test: (s) => st(s, "biggest") >= 500 },
+  { name: "Maxed Out", desc: "max out any skill", test: (s) => Object.values(s.skills).some((v) => v >= SKILL_MAX) },
+  { name: "Dear Grandma", desc: "read every letter", test: (s) => s.letters.length >= LETTERS.length },
+  { name: "Legend", desc: "catch the Legend God Fish", test: (s) => st(s, "legends") >= 1 },
+  { name: "Old Friends", desc: "meet the Legend 5 times", test: (s) => st(s, "legends") >= 5 },
+  { name: "Butterfingers", desc: "let 50 fish get away", test: (s) => st(s, "escaped") >= 50 },
+];
+
 // ---------- shared state (persists across scenes) ----------
 export const state = {};
 export function resetState() {
@@ -219,9 +274,12 @@ export function resetState() {
     level: 1,
     xp: 0,
     skillPoints: 0,
-    skills: { reflex: 0, strength: 0, luck: 0, patience: 0 },
+    skills: { reflex: 0, strength: 0, luck: 0, patience: 0, endurance: 0, fortune: 0 },
     technique: 0,
     journal: {}, // species name -> best size (cm)
+    letters: [], // indexes of Grandma's letters found
+    achievements: {}, // achievement name -> time earned (ms)
+    stats: {}, // lifetime counters: walked (m), casts, escaped, coinsEarned, biggest, legends, catch_<technique>, ...
   });
 }
 resetState();

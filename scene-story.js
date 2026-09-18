@@ -249,8 +249,14 @@ scene("win", ({ choice, elapsed }) => {
     layer("ui"),
   ]);
 
-  const prompt = add([text("Press SPACE to play again", { size: 14 }), keyHint("Press SPACE to play again"), pos(W / 2, H - 50), anchor("center"), color(C.title), opacity(1), layer("ui")]);
+  const prompt = add([text("", { size: 14 }), keyHint("SPACE keep fishing    N new game"), pos(W / 2, H - 50), anchor("center"), color(C.title), opacity(1), layer("ui")]);
   pulse(prompt);
 
-  onKeyPress("space", () => go("intro"));
+  // the story is over, but the sea isn't: keep fishing with everything you have
+  onKeyPress("space", () => {
+    if (!document.querySelector(".modal-back")) go("game", { elapsed, postGame: true });
+  });
+  onKeyPress("n", () => {
+    if (!document.querySelector(".modal-back") && confirm("Start over from the beginning? This run's progress will be replaced.")) go("naming");
+  });
 });

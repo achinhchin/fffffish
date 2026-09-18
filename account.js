@@ -1,5 +1,5 @@
 // Login / signup, cloud saves and the global scoreboard (talks to /api on our server).
-import { state } from "./data.js";
+import { state, resetState, FISH_SPECIES } from "./data.js";
 
 const canvas = document.querySelector("canvas");
 const AUTOSAVE_MS = 5000;
@@ -27,7 +27,7 @@ async function api(method, url, body) {
 }
 
 // ---------- save snapshots ----------
-const SAVE_KEYS = ["playerName", "money", "rodIndex", "ownedRods", "caughtCount", "level", "xp", "skillPoints", "skills", "technique", "journal"];
+const SAVE_KEYS = ["playerName", "money", "rodIndex", "ownedRods", "caughtCount", "level", "xp", "skillPoints", "skills", "technique", "journal", "letters", "achievements", "stats"];
 
 export function snapshotState() {
   const snap = {};
@@ -38,9 +38,12 @@ export function snapshotState() {
 
 // Copies a save into the live state; returns the play time it had.
 export function applySave(save) {
+  resetState(); // defaults for anything an older save doesn't have
+  const skills = { ...state.skills, ...save.skills };
   for (const k of SAVE_KEYS) {
     if (save[k] !== undefined) state[k] = structuredClone(save[k]);
   }
+  state.skills = skills;
   if (!Array.isArray(state.ownedRods) || !state.ownedRods.includes(state.rodIndex)) state.ownedRods = [0, state.rodIndex];
   return Number(save.elapsed) || 0;
 }
@@ -77,12 +80,11 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", () => pushSave(true));
 
-// Legend caught: records best stats on the scoreboard and ends the run.
+// Legend caught: puts the run on the scoreboard (the save is kept; you can keep fishing).
 export async function finishRun(elapsed) {
   if (!isLoggedIn()) return;
-  playing = false;
   const save = snapshotState();
-  account.save = null;
+  account.save = save;
   try {
     await api("PUT", "/api/save", { save, finished: elapsed });
   } catch {
@@ -277,7 +279,7 @@ export async function openScoreboard() {
         el("td", r.legend_time != null ? "gold" : "", fmtTime(r.legend_time)),
         el("td", "", r.level),
         el("td", "", r.caught),
-        el("td", "", `${r.species}/12`),
+        el("td", "", `${r.species}/${FISH_SPECIES.length}`),
       );
       return tr;
     };

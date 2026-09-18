@@ -72,6 +72,7 @@ const KEYS = {
   k: { key: "k", code: "KeyK" },
   j: { key: "j", code: "KeyJ" },
   l: { key: "l", code: "KeyL" },
+  t: { key: "t", code: "KeyT" },
 };
 function sendKey(type, name) {
   canvas.dispatchEvent(new KeyboardEvent(type, { ...KEYS[name], bubbles: true, cancelable: true }));
@@ -135,6 +136,7 @@ const actions = el("div", "actions");
 actions.append(
   keyButton("escape", "BACK", "small back"),
   keyButton("l", "L", "small l", "board"),
+  keyButton("t", "T", "small t", "rec"),
   keyButton("q", "Q", "small q", "tech"),
   keyButton("e", "E", "small e", "tech"),
   keyButton("k", "K", "small k", "skills"),

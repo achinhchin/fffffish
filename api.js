@@ -6,7 +6,7 @@ import path from "node:path";
 
 const SESSION_DAYS = 30;
 const MAX_BODY = 64 * 1024;
-const SPECIES_COUNT = 12;
+const SPECIES_COUNT = 20;
 
 export function createApi(dataDir) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -245,8 +245,7 @@ export function createApi(dataDir) {
       if (!save || typeof save !== "object" || Array.isArray(save)) return json(res, 400, { error: "missing save" });
       const finished = body.finished ?? null;
       q.upsertScore.run({ uid: user.id, now, ...statsFrom(save, finished) });
-      if (finished != null) q.deleteSave.run(user.id); // run complete: next time starts fresh
-      else q.putSave.run(user.id, JSON.stringify(save), now);
+      q.putSave.run(user.id, JSON.stringify(save), now); // kept after the ending: players can keep fishing
       json(res, 200, { ok: true });
     },
 

@@ -21,6 +21,8 @@ import {
   FISH_SPECIES,
   FISH_WEIGHTS,
   TIER_NAMES,
+  LETTERS,
+  ACHIEVEMENTS,
   xpToNext,
   state,
   weather,
@@ -45,7 +47,7 @@ import {
   lerpN,
 } from "./art.js";
 import { keyText } from "./touch.js";
-import { setPlaying, saveNow, openScoreboard, account } from "./account.js";
+import { setPlaying, saveNow, openScoreboard, account, finishRun } from "./account.js";
 
 // ---------- fishing math ----------
 // Combined numbers from the equipped rod, skills and weather.
@@ -56,13 +58,14 @@ function stats() {
     rod,
     window: rod.window * (1 + 0.1 * s.reflex),
     power: rod.power * (1 + 0.12 * s.strength),
-    luck: rod.luck + (rod.rainLuck || 0) * weather.rain + 0.1 * s.luck,
-    coinMult: 1 + 0.06 * s.luck,
-    waitMult: (1 - 0.1 * s.patience) * (1 - 0.35 * weather.rain),
+    luck: rod.luck + (rod.rainLuck || 0) * weather.rain + (rod.nightLuck || 0) * nightAmount() + 0.1 * s.luck,
+    coinMult: 1 + 0.08 * s.fortune,
+    waitMult: (1 - 0.08 * s.patience) * (1 - 0.35 * weather.rain),
   };
 }
 
-function speciesAvailable(sp) {
+function speciesAvailable(sp, techId) {
+  if (sp.cond === "deep") return techId === "deep";
   if (sp.cond === "night") return nightAmount() > 0.55;
   if (sp.cond === "rain") return weather.rain > 0.3;
   return true;
@@ -79,9 +82,9 @@ function weightedPick(items, weightOf) {
 }
 
 // Luck bends the tier odds toward rarer fish; the species then sets size & value.
-function rollCatch(luck, valueMult) {
+function rollCatch(luck, valueMult, techId) {
   const tier = weightedPick(RODS[state.rodIndex].tiers, (t) => FISH_WEIGHTS[t] * (1 + luck * t * 0.9));
-  const pool = FISH_SPECIES.filter((sp) => sp.tier === tier && speciesAvailable(sp));
+  const pool = FISH_SPECIES.filter((sp) => sp.tier === tier && speciesAvailable(sp, techId));
   // weather/night fish are the exciting ones, so they get a bit more weight when around
   const species = weightedPick(pool, (sp) => (sp.cond ? 2 : 1));
   const [lo, hi] = species.size;
@@ -94,7 +97,13 @@ function rollCatch(luck, valueMult) {
 const TUG_R0 = 46;
 const TUG_TARGET = 12;
 
+const isNight = () => nightAmount() > 0.55;
+const fmtTime = (sec) => `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+
 scene("game", (opts = {}) => {
+  const S = state.stats;
+  const bump = (k, n = 1) => (S[k] = (S[k] || 0) + n);
+  const finished = () => (S.legends || 0) > 0;
   addEnvironment(true);
   addPierScenery();
   state.gameStartTime = time() - (opts.elapsed || 0);
@@ -187,6 +196,7 @@ scene("game", (opts = {}) => {
     const before = player.pos.x;
     player.pos.x = Math.max(PIER_X_MIN, Math.min(PIER_X_MAX, player.pos.x + dir * PLAYER_SPEED * dt()));
     if (player.pos.x !== before) player.walkTimer = 0.08;
+    bump("walked", Math.abs(player.pos.x - before) / 40); // 40px = 1 m
     player.scale.x = dir;
   }
   onKeyDown(["left", "a"], () => walk(-1));
@@ -213,6 +223,7 @@ scene("game", (opts = {}) => {
   }
 
   function startCast(power = 0) {
+    bump("casts");
     fishState = "waiting";
     isLegendBite = false;
     catchInfo = null;
@@ -294,11 +305,13 @@ scene("game", (opts = {}) => {
     const s = stats();
     const t = tech();
     const reflexBoost = 1 + 0.1 * state.skills.reflex;
-    const legendChance = s.rod.legendChance ? s.rod.legendChance + (t.id === "deep" ? 0.15 * power : 0) + 0.1 * weather.rain : 0;
+    // the Legend only answers once every letter from Grandma has been read
+    const ready = state.letters.length >= LETTERS.length;
+    const legendChance = ready && s.rod.legendChance ? s.rod.legendChance + (t.id === "deep" ? 0.15 * power : 0) + 0.1 * weather.rain : 0;
     isLegendBite = chance(legendChance);
     catchInfo = isLegendBite
       ? { legend: true, tier: 4 }
-      : rollCatch(s.luck + t.luck + (t.id === "deep" ? power * 0.8 : 0), t.valueMult * s.coinMult);
+      : rollCatch(s.luck + t.luck + (t.id === "deep" ? power * 0.8 + (s.rod.deepLuck || 0) : 0), t.valueMult * s.coinMult, t.id);
 
     burst(myBobber.pos, isLegendBite ? C.gold : C.seaFoam, isLegendBite ? 16 : 8, 70);
     if (isLegendBite) shake(4);
@@ -380,7 +393,8 @@ scene("game", (opts = {}) => {
       r.vel = -Math.abs(r.vel) * 0.3;
     }
     r.inside = Math.abs(r.fish - r.zone) < half;
-    r.progress += (r.inside ? r.gain : -r.loss) * dt();
+    const endure = state.skills.endurance || 0;
+    r.progress += (r.inside ? r.gain * (1 + 0.05 * endure) : -r.loss * (1 - 0.08 * endure)) * dt();
     if (r.progress >= 1) succeedCatch();
     else if (r.progress <= 0) failCast(catchInfo.legend ? "The legend broke free..." : "It broke free...");
   }
@@ -415,6 +429,7 @@ scene("game", (opts = {}) => {
 
   // ---------- results ----------
   function failCast(msg) {
+    bump(msg === "Too early!" ? "tooEarly" : "escaped");
     fishState = "cooldown";
     floatingText(msg, C.badText, vec2(player.pos.x, PIER_Y - 100));
     clearBobber();
@@ -478,7 +493,19 @@ scene("game", (opts = {}) => {
     const info = catchInfo;
     if (info.legend) {
       clearBobber();
-      go("ending", { elapsed: time() - state.gameStartTime });
+      const elapsed = time() - state.gameStartTime;
+      bump("legends");
+      if (S.legends === 1) {
+        go("ending", { elapsed }); // the story ending, only the first time
+        return;
+      }
+      finishRun(elapsed); // later visits still count on the scoreboard
+      state.money += 300;
+      bump("coinsEarned", 300);
+      shake(5);
+      burst(vec2(BOBBER_X, BOBBER_Y), C.gold, 30, 140);
+      floatingText("The Legend came to visit you again! +300", C.goldText, vec2(player.pos.x, PIER_Y - 100));
+      wait(COOLDOWN, () => (fishState = "idle"));
       return;
     }
     const name = info.species.name;
@@ -486,6 +513,14 @@ scene("game", (opts = {}) => {
     state.journal[name] = Math.max(prevBest ?? 0, info.size);
     state.money += info.value;
     state.caughtCount++;
+    bump("coinsEarned", info.value);
+    bump(`catch_${tech().id}`);
+    if (isNight()) bump("nightCatches");
+    if (weather.rain > 0.3) bump("rainCatches");
+    if (info.size > (S.biggest || 0)) {
+      S.biggest = info.size;
+      S.biggestName = name;
+    }
 
     burst(bobber ? bobber.pos : vec2(BOBBER_X, BOBBER_Y), C.seaFoam, 10, 80);
     flyingCatch(info.species, info.tier);
@@ -534,6 +569,13 @@ scene("game", (opts = {}) => {
   }
   onKeyPress("k", () => togglePanel("skills"));
   onKeyPress("j", () => togglePanel("journal"));
+  onKeyPress("t", () => {
+    if (!finished()) {
+      floatingText("Records unlock after you finish the story", C.badText, vec2(player.pos.x, PIER_Y - 100));
+      return;
+    }
+    togglePanel("records");
+  });
   onKeyPress("l", () => {
     if (lineOut()) return;
     if (!account.online) {
@@ -547,6 +589,7 @@ scene("game", (opts = {}) => {
   onKeyPress("escape", () => {
     panel = null;
   });
+  let recordsPage = 0;
   function moveSel(dir) {
     const n = panel === "shop" ? RODS.length : panel === "skills" ? SKILLS.length : 0;
     if (n) sel = (sel + dir + n) % n;
@@ -555,6 +598,7 @@ scene("game", (opts = {}) => {
   onKeyPress(["down", "s"], () => moveSel(1));
   onKeyPress(["left", "right"], () => {
     if (panel === "shop") moveSel(isKeyDown("left") ? -1 : 1);
+    if (panel === "records") recordsPage = 1 - recordsPage;
   });
 
   function shopAction() {
@@ -579,6 +623,7 @@ scene("game", (opts = {}) => {
 
   function spendPoint() {
     const sk = SKILLS[sel];
+    state.skills[sk.id] ||= 0;
     if (state.skillPoints <= 0 || state.skills[sk.id] >= SKILL_MAX) {
       denyAt = time();
       return;
@@ -592,7 +637,7 @@ scene("game", (opts = {}) => {
   onKeyPress("space", () => {
     if (panel === "shop") return shopAction();
     if (panel === "skills") return spendPoint();
-    if (panel === "journal") {
+    if (panel === "journal" || panel === "letter" || panel === "records") {
       panel = null;
       return;
     }
@@ -736,11 +781,12 @@ scene("game", (opts = {}) => {
     pill(jX, 38, jW);
     drawText({ text: jStr, size: 12, pos: vec2(jX + 13, 51), anchor: "left", color: C.hudText });
 
-    if (account.online) {
-      const lStr = "L board";
-      const lX = jX + jW + 8;
-      pill(lX, 38, tw(lStr, 12) + 26);
-      drawText({ text: lStr, size: 12, pos: vec2(lX + 13, 51), anchor: "left", color: C.hudText });
+    let nx = jX + jW + 8;
+    for (const str of [account.online && "L board", finished() && "T records"].filter(Boolean)) {
+      const w = tw(str, 12) + 26;
+      pill(nx, 38, w);
+      drawText({ text: str, size: 12, pos: vec2(nx + 13, 51), anchor: "left", color: C.hudText });
+      nx += w + 8;
     }
 
     if (weather.rain > 0.05) {
@@ -812,7 +858,7 @@ scene("game", (opts = {}) => {
     if (fishState === "cooldown") return "";
     if (nearZone(player.pos.x, SHOP_X)) return "SPACE to open the shop";
     if (nearZone(player.pos.x, FISH_X)) return t === "deep" ? "HOLD SPACE to charge a deep cast" : `SPACE to cast (${tech().name})`;
-    return "<- -> walk   Q/E technique   K skills   J journal   L board";
+    return finished() ? "<- -> walk  Q/E tech  K skills  J journal  L board  T records" : "<- -> walk   Q/E technique   K skills   J journal   L board";
   }
 
   // ---------- panels ----------
@@ -822,6 +868,8 @@ scene("game", (opts = {}) => {
     if (panel === "shop") drawShop();
     else if (panel === "skills") drawSkills();
     else if (panel === "journal") drawJournal();
+    else if (panel === "letter") drawLetter();
+    else if (panel === "records") drawRecords();
   }, "ui", 50);
 
   function panelFrame(x0, y0, w, h, title) {
@@ -837,19 +885,19 @@ scene("game", (opts = {}) => {
 
   function drawShop() {
     const x0 = W / 2 - 290;
-    const y0 = H / 2 - 180;
-    panelFrame(x0, y0, 580, 360, "Tackle Shop");
+    const y0 = H / 2 - 210;
+    panelFrame(x0, y0, 580, 420, "Tackle Shop");
     drawCoin(vec2(x0 + 500, y0 + 23), 8);
     drawText({ text: `${state.money}`, size: 15, pos: vec2(x0 + 514, y0 + 23), anchor: "left", color: C.panelTitle });
 
     // rod list
     for (let i = 0; i < RODS.length; i++) {
       const r = RODS[i];
-      const y = y0 + 66 + i * 30;
+      const y = y0 + 64 + i * 26;
       const owned = state.ownedRods.includes(i);
       if (i === sel) {
         const shakeX = denied() ? Math.sin(time() * 60) * 3 : 0;
-        drawRect({ pos: vec2(x0 + 14 + shakeX, y - 12), width: 236, height: 26, radius: 10, color: C.goldLight, outline: { width: 2, color: C.gold } });
+        drawRect({ pos: vec2(x0 + 14 + shakeX, y - 11), width: 236, height: 23, radius: 10, color: C.goldLight, outline: { width: 2, color: C.gold } });
       }
       drawCircle({ pos: vec2(x0 + 30, y + 1), radius: 5, color: r.tint });
       drawText({ text: r.name, size: 13, pos: vec2(x0 + 42, y + 1), anchor: "left", color: C.panelText });
@@ -879,7 +927,7 @@ scene("game", (opts = {}) => {
     const rows = [
       ["Timing", r.window / 1.3, C.playerScarfDark],
       ["Power", r.power / 2.1, C.stallRoof],
-      ["Luck", r.luck / 0.5, C.goodText],
+      ["Luck", r.luck / 0.6, C.goodText],
     ];
     rows.forEach(([label, k, col], i) => {
       const y = y0 + 176 + i * 22;
@@ -889,7 +937,15 @@ scene("game", (opts = {}) => {
     const fy = y0 + 244;
     drawText({ text: "Fish", size: 12, pos: vec2(dx + 16, fy), anchor: "left", color: C.panelText });
     drawText({ text: r.tiers.map((t) => TIER_NAMES[t]).join(" "), size: 10, pos: vec2(dx + 80, fy), anchor: "left", color: C.panelHint });
-    const special = r.legendChance ? "can hook the Legend God Fish" : r.rainLuck ? "extra luck while it rains" : "";
+    const special = r.legendChance
+      ? "hooks the Legend (after all 6 letters)"
+      : r.rainLuck
+        ? "extra luck while it rains"
+        : r.nightLuck
+          ? "extra luck at night"
+          : r.deepLuck
+            ? "extra luck on a deep line"
+            : "";
     if (special) drawText({ text: special, size: 11, pos: vec2(dx + 16, fy + 22), anchor: "left", color: C.goldText });
 
     let action;
@@ -902,18 +958,18 @@ scene("game", (opts = {}) => {
       col = C.badText;
     }
     drawText({ text: keyText(action), size: 14, pos: vec2(dx + 146, y0 + 290), anchor: "center", color: col });
-    drawText({ text: keyText("up/down browse   ESC close"), size: 11, pos: vec2(W / 2, y0 + 340), anchor: "center", color: C.panelHint });
+    drawText({ text: keyText("up/down browse   ESC close"), size: 11, pos: vec2(W / 2, y0 + 400), anchor: "center", color: C.panelHint });
   }
 
   function drawSkills() {
     const x0 = W / 2 - 260;
-    const y0 = H / 2 - 190;
-    panelFrame(x0, y0, 520, 380, "Fishing Skills");
+    const y0 = H / 2 - 205;
+    panelFrame(x0, y0, 520, 410, "Fishing Skills");
 
     const need = xpToNext(state.level);
     drawText({ text: `Level ${state.level}`, size: 16, pos: vec2(x0 + 24, y0 + 70), anchor: "left", color: C.panelTitle });
-    drawStatBar(x0 + 130, y0 + 66, 220, state.xp / need, C.playerScarfDark);
-    drawText({ text: `${state.xp}/${need} xp`, size: 11, pos: vec2(x0 + 360, y0 + 70), anchor: "left", color: C.panelHint });
+    drawStatBar(x0 + 120, y0 + 66, 180, state.xp / need, C.playerScarfDark);
+    drawText({ text: `${state.xp}/${need} xp`, size: 11, pos: vec2(x0 + 310, y0 + 70), anchor: "left", color: C.panelHint });
     drawText({
       text: `points: ${state.skillPoints}`,
       size: 13,
@@ -923,57 +979,147 @@ scene("game", (opts = {}) => {
     });
 
     SKILLS.forEach((sk, i) => {
-      const y = y0 + 106 + i * 40;
+      const y = y0 + 100 + i * 32;
       if (i === sel) {
         const shakeX = denied() ? Math.sin(time() * 60) * 3 : 0;
-        drawRect({ pos: vec2(x0 + 14 + shakeX, y - 6), width: 492, height: 36, radius: 10, color: C.goldLight, outline: { width: 2, color: C.gold } });
+        drawRect({ pos: vec2(x0 + 14 + shakeX, y - 6), width: 492, height: 31, radius: 10, color: C.goldLight, outline: { width: 2, color: C.gold } });
       }
-      drawText({ text: sk.name, size: 15, pos: vec2(x0 + 28, y + 6), anchor: "left", color: C.panelTitle });
-      drawText({ text: sk.desc, size: 10, pos: vec2(x0 + 28, y + 21), anchor: "left", color: C.panelHint });
-      drawPips(x0 + 300, y + 12, state.skills[sk.id], SKILL_MAX, C.playerScarfDark, 6, 17);
-      if (i === sel && state.skillPoints > 0 && state.skills[sk.id] < SKILL_MAX) {
-        drawText({ text: keyText("+ SPACE"), size: 11, pos: vec2(x0 + 494, y + 12), anchor: "right", color: C.goodText });
+      drawText({ text: sk.name, size: 14, pos: vec2(x0 + 28, y + 4), anchor: "left", color: C.panelTitle });
+      drawText({ text: sk.desc, size: 10, pos: vec2(x0 + 28, y + 17), anchor: "left", color: C.panelHint });
+      drawPips(x0 + 262, y + 10, state.skills[sk.id] || 0, SKILL_MAX, C.playerScarfDark, 5, 14);
+      if (i === sel && state.skillPoints > 0 && (state.skills[sk.id] || 0) < SKILL_MAX) {
+        drawText({ text: keyText("+ SPACE"), size: 11, pos: vec2(x0 + 494, y + 10), anchor: "right", color: C.goodText });
       }
     });
 
-    drawText({ text: "Techniques", size: 14, pos: vec2(x0 + 24, y0 + 276), anchor: "left", color: C.panelTitle });
+    drawText({ text: "Techniques", size: 14, pos: vec2(x0 + 24, y0 + 304), anchor: "left", color: C.panelTitle });
     TECHNIQUES.forEach((t, i) => {
-      const y = y0 + 298 + i * 20;
+      const y = y0 + 324 + i * 20;
       const open = state.level >= t.unlock;
       drawCircle({ pos: vec2(x0 + 30, y), radius: 5, color: open ? (i === state.technique ? C.gold : C.goodText) : C.panelOutline });
       drawText({ text: `${i + 1}. ${t.name}`, size: 12, pos: vec2(x0 + 42, y), anchor: "left", color: open ? C.panelText : C.panelHint });
       drawText({ text: open ? t.desc : `unlocks at Lv ${t.unlock}`, size: 10, pos: vec2(x0 + 150, y), anchor: "left", color: C.panelHint });
     });
-    drawText({ text: keyText("up/down choose   SPACE spend point   ESC close"), size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
+    drawText({ text: keyText("up/down choose   SPACE spend point   ESC close"), size: 11, pos: vec2(W / 2, y0 + 396), anchor: "center", color: C.panelHint });
   }
 
   function drawJournal() {
     const x0 = W / 2 - 300;
-    const y0 = H / 2 - 190;
+    const y0 = H / 2 - 200;
     const found = Object.keys(state.journal).length;
-    panelFrame(x0, y0, 600, 380, `Fish Journal  ${found}/${FISH_SPECIES.length}`);
+    panelFrame(x0, y0, 600, 400, `Fish Journal  ${found}/${FISH_SPECIES.length}`);
     FISH_SPECIES.forEach((sp, i) => {
-      const cx = x0 + 22 + (i % 4) * 140;
-      const cy = y0 + 60 + Math.floor(i / 4) * 100;
+      const cx = x0 + 18 + (i % 5) * 114;
+      const cy = y0 + 56 + Math.floor(i / 5) * 76;
       const best = state.journal[sp.name];
       const known = best !== undefined;
-      drawRect({ pos: vec2(cx, cy), width: 130, height: 90, radius: 10, color: known ? rgb(255, 255, 255) : C.panelBg, opacity: 0.8, outline: { width: 1.5, color: known ? C.panelOutline : rgb(230, 220, 210) } });
+      drawRect({ pos: vec2(cx, cy), width: 108, height: 70, radius: 9, color: known ? rgb(255, 255, 255) : C.panelBg, opacity: 0.8, outline: { width: 1.5, color: known ? C.panelOutline : rgb(230, 220, 210) } });
       pushTransform();
-      pushTranslate(vec2(cx + 65, cy + 30));
-      if (known) drawFishShape(46, sp.col, sp.fin, time() + i);
-      else drawFishShape(46, rgb(200, 196, 204), rgb(186, 180, 192), 0);
+      pushTranslate(vec2(cx + 54, cy + 24));
+      if (known) drawFishShape(34, sp.col, sp.fin, time() + i);
+      else drawFishShape(34, rgb(200, 196, 204), rgb(186, 180, 192), 0);
       popTransform();
-      drawText({ text: known ? sp.name : "???", size: 12, pos: vec2(cx + 65, cy + 60), anchor: "center", color: known ? C.panelText : C.panelHint });
-      drawText({ text: known ? `best ${best}cm` : TIER_NAMES[sp.tier], size: 10, pos: vec2(cx + 65, cy + 76), anchor: "center", color: C.panelHint });
-      for (let s = 0; s <= sp.tier; s++) drawSparkle(vec2(cx + 12 + s * 9, cy + 12), 3.5, known ? C.gold : C.panelOutline);
-      if (sp.cond === "rain") drawDrop(vec2(cx + 116, cy + 12), 0.9, C.fishBlue);
+      drawText({ text: known ? sp.name : "???", size: 10, pos: vec2(cx + 54, cy + 47), anchor: "center", color: known ? C.panelText : C.panelHint });
+      drawText({ text: known ? `best ${best}cm` : TIER_NAMES[sp.tier], size: 9, pos: vec2(cx + 54, cy + 60), anchor: "center", color: C.panelHint });
+      for (let k = 0; k <= sp.tier; k++) drawSparkle(vec2(cx + 9 + k * 7, cy + 9), 3, known ? C.gold : C.panelOutline);
+      if (sp.cond === "rain") drawDrop(vec2(cx + 96, cy + 10), 0.8, C.fishBlue);
       if (sp.cond === "night") {
-        drawCircle({ pos: vec2(cx + 116, cy + 13), radius: 5.5, color: C.goldText });
-        drawCircle({ pos: vec2(cx + 119, cy + 11), radius: 4.5, color: known ? rgb(255, 255, 255) : C.panelBg });
+        drawCircle({ pos: vec2(cx + 96, cy + 11), radius: 5, color: C.goldText });
+        drawCircle({ pos: vec2(cx + 99, cy + 9), radius: 4, color: known ? rgb(255, 255, 255) : C.panelBg });
+      }
+      if (sp.cond === "deep") drawText({ text: "deep", size: 8, pos: vec2(cx + 100, cy + 10), anchor: "right", color: C.fishShadow });
+    });
+    const next = LETTERS.findIndex((_, i) => !state.letters.includes(i));
+    const letterInfo = next < 0 ? "all of Grandma's letters found" : `Grandma's letters ${state.letters.length}/${LETTERS.length} - next: ${LETTERS[next].hint}`;
+    drawText({ text: letterInfo, size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.goldText });
+    drawText({ text: keyText("drop = rain   moon = night   deep = deep line   J / ESC close"), size: 10, pos: vec2(W / 2, y0 + 386), anchor: "center", color: C.panelHint });
+  }
+
+  // ---------- Grandma's letters ----------
+  function drawLetter() {
+    const x0 = W / 2 - 250;
+    const y0 = H / 2 - 170;
+    drawPanel(x0, y0, 500, 340, { radius: 16 });
+    drawRect({ pos: vec2(x0 + 12, y0 + 12), width: 476, height: 316, radius: 10, color: C.signBoard });
+    for (let i = 0; i < 9; i++) drawLine({ p1: vec2(x0 + 30, y0 + 92 + i * 24), p2: vec2(x0 + 470, y0 + 92 + i * 24), width: 1, color: C.panelOutline, opacity: 0.5 });
+    drawText({ text: `A letter from Grandma  (${letterIdx + 1}/${LETTERS.length})`, size: 16, pos: vec2(W / 2, y0 + 40), anchor: "center", color: C.stallOutline });
+    drawText({
+      text: LETTERS[letterIdx].text.replaceAll("{name}", state.playerName),
+      size: 13,
+      width: 440,
+      lineSpacing: 9,
+      pos: vec2(x0 + 30, y0 + 72),
+      color: C.panelText,
+    });
+    drawText({ text: keyText("SPACE / ESC to fold it away"), size: 11, pos: vec2(W / 2, y0 + 318), anchor: "center", color: C.panelHint });
+  }
+
+  // ---------- records (unlocked after the story ends) ----------
+  function drawRecords() {
+    const x0 = W / 2 - 300;
+    const y0 = H / 2 - 205;
+    const got = ACHIEVEMENTS.filter((a) => state.achievements[a.name]).length;
+    panelFrame(x0, y0, 600, 410, recordsPage === 0 ? "Your Story in Numbers" : `Achievements  ${got}/${ACHIEVEMENTS.length}`);
+    if (recordsPage === 0) {
+      const tech = TECHNIQUES.map((t) => `${t.name} ${S[`catch_${t.id}`] || 0}`).join(" / ");
+      const rows = [
+        ["Time on the pier", fmtTime(time() - state.gameStartTime)],
+        ["Distance walked", `${Math.round(S.walked || 0)} m`],
+        ["Casts", `${S.casts || 0}   (too early ${S.tooEarly || 0}, got away ${S.escaped || 0})`],
+        ["Fish caught", `${state.caughtCount}`],
+        ["  by technique", tech],
+        ["Species found", `${Object.keys(state.journal).length}/${FISH_SPECIES.length}`],
+        ["Biggest fish", S.biggest ? `${S.biggestName}, ${S.biggest} cm` : "-"],
+        ["Night / rain catches", `${S.nightCatches || 0} / ${S.rainCatches || 0}`],
+        ["Coins earned", `${S.coinsEarned || 0}`],
+        ["Level", `${state.level}`],
+        ["Rods owned", `${state.ownedRods.length}/${RODS.length}`],
+        ["Grandma's letters", `${state.letters.length}/${LETTERS.length}`],
+        ["Legend visits", `${S.legends || 0}`],
+        ["Achievements", `${got}/${ACHIEVEMENTS.length}`],
+      ];
+      rows.forEach(([k, v], i) => {
+        const y = y0 + 68 + i * 22;
+        if (i % 2 === 0) drawRect({ pos: vec2(x0 + 20, y - 10), width: 560, height: 21, radius: 6, color: rgb(255, 255, 255), opacity: 0.5 });
+        drawText({ text: k, size: 12, pos: vec2(x0 + 32, y), anchor: "left", color: C.panelHint });
+        drawText({ text: v, size: 12, pos: vec2(x0 + 568, y), anchor: "right", color: C.panelTitle });
+      });
+    } else {
+      ACHIEVEMENTS.forEach((a, i) => {
+        const cx = x0 + 18 + (i % 3) * 190;
+        const cy = y0 + 56 + Math.floor(i / 3) * 40;
+        const has = !!state.achievements[a.name];
+        drawRect({ pos: vec2(cx, cy), width: 182, height: 35, radius: 8, color: has ? C.goldLight : C.panelBg, outline: { width: 1.5, color: has ? C.gold : C.panelOutline } });
+        drawSparkle(vec2(cx + 14, cy + 17), 6, has ? C.gold : C.panelOutline);
+        drawText({ text: a.name, size: 11, pos: vec2(cx + 28, cy + 11), anchor: "left", color: has ? C.panelTitle : C.panelHint });
+        drawText({ text: a.desc, size: 9, pos: vec2(cx + 28, cy + 25), anchor: "left", color: C.panelHint });
+      });
+    }
+    drawText({ text: keyText("<- -> switch page   T / ESC close"), size: 11, pos: vec2(W / 2, y0 + 396), anchor: "center", color: C.panelHint });
+  }
+
+  // letters and achievements are checked twice a second
+  let letterIdx = 0;
+  const pendingLetters = [];
+  loop(0.5, () => {
+    LETTERS.forEach((l, i) => {
+      if (!state.letters.includes(i) && l.when(state)) {
+        state.letters.push(i);
+        pendingLetters.push(i);
       }
     });
-    drawText({ text: keyText("drop = only in rain   moon = only at night   J / ESC close"), size: 11, pos: vec2(W / 2, y0 + 366), anchor: "center", color: C.panelHint });
-  }
+    if (pendingLetters.length && !panel && fishState === "idle") {
+      letterIdx = pendingLetters.shift();
+      panel = "letter";
+    }
+    for (const a of ACHIEVEMENTS) {
+      if (state.achievements[a.name] || !a.test(state)) continue;
+      state.achievements[a.name] = Date.now();
+      // earned quietly during the story, celebrated after it
+      if (finished()) floatingText(`Achievement: ${a.name}`, C.goldText, vec2(W / 2, 110));
+    }
+  });
+  if (opts.postGame) wait(0.8, () => floatingText("Records unlocked! Press T", C.goldText, vec2(W / 2, 140)));
 
   // ---------- per-frame ----------
   onUpdate(() => {

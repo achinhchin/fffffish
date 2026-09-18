@@ -33,7 +33,7 @@
   /* ---------- touch toggle ---------- */
   .touch-toggle {
     position: fixed;
-    top: calc(8px + env(safe-area-inset-top));
+    bottom: calc(8px + env(safe-area-inset-bottom));
     left: calc(8px + env(safe-area-inset-left));
     z-index: 20;
     padding: 5px 12px;
@@ -47,6 +47,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .touch-toggle:hover { opacity: 1; }
+  body.touch-mode .touch-toggle { bottom: calc(196px + env(safe-area-inset-bottom)); }
   /* ---------- on-screen controls ---------- */
   .touch-controls {
     display: none;
@@ -115,8 +116,10 @@
     align-items: center;
   }
   .actions .small { width: 46px; height: 46px; font-size: 15px; }
-  .actions .back { grid-column: 1 / span 2; grid-row: 1; width: 100%; height: 34px; border-radius: 999px; font-size: 12px; }
-  .actions .l { grid-column: 3; grid-row: 1; width: 46px; height: 34px; border-radius: 999px; font-size: 12px; flex-direction: row; gap: 3px; }
+  .actions .back { grid-column: 1; grid-row: 1; width: 46px; height: 34px; border-radius: 999px; font-size: 10px; }
+  .actions .l, .actions .t { grid-row: 1; width: 46px; height: 34px; border-radius: 999px; font-size: 12px; flex-direction: row; gap: 2px; }
+  .actions .l { grid-column: 2; }
+  .actions .t { grid-column: 3; }
   .actions .q { grid-column: 1; grid-row: 2; }
   .actions .e { grid-column: 2; grid-row: 2; }
   .actions .k { grid-column: 3; grid-row: 2; }
